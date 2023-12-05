@@ -1,4 +1,3 @@
-use core::num;
 use std::fs::File;
 use std::io::{self, BufRead};
 use std::path::Path;
@@ -33,24 +32,37 @@ enum ReadState {
     // HumToLoc,
 }
 
-enum DataType {
+#[derive(Clone)]
+enum UnitType {
     Seed,
     Soil,
     Fert,
     Water,
+    Light,
     Temp,
     Hum,
     Loc
 }
+
+impl UnitType {
+    fn transition(self: &Self) -> Self {
+        match self {
+            UnitType::Seed => UnitType::Soil,
+            UnitType::Soil => UnitType::Fert,
+            UnitType::Fert => UnitType::Water,
+            UnitType::Water => UnitType::Light,
+            UnitType::Light => UnitType::Temp,
+            UnitType::Temp => UnitType::Hum,
+            UnitType::Hum => UnitType::Loc,
+            _ => UnitType::Loc,
+        }
+    }
+}
 // I can probably do it better than manually defining these two.
-enum DataUnit {
-    Seed(u64),
-    Soil(u64),
-    Fert(u64),
-    Water(u64),
-    Temp(u64),
-    Hum(u64),
-    Loc(u64)
+
+struct DataUnit {
+    value: u64,
+    kind: UnitType,
 }
 
 struct RangeSpec {
@@ -68,26 +80,17 @@ impl RangeSpec {
         return Self { dest, src, range };
     }
 
-    fn get_dest(self: &Self, src: u64) -> u64 {
-        if (self.src + self.range) < src {
-            let difference = src - self.src;
-            return self.dest + difference;
-        } else {
-            return src;
-        }
-    }
-}
+    fn get_dest(self: &Self, src: &DataUnit) -> DataUnit {
+        let val = src.value;
 
-impl DataUnit {
-    fn new(v: u64, d: DataType) -> Self {
-        match d {
-            DataType::Fert => DataUnit::Fert(v),
-            DataType::Seed => DataUnit::Seed(v),
-            DataType::Hum => DataUnit::Hum(v),
-            DataType::Loc => DataUnit::Loc(v),
-            DataType::Soil => DataUnit::Soil(v),
-            DataType::Temp => DataUnit::Temp(v),
-            DataType::Water => DataUnit::Water(v)
+        if val > (self.src + self.range) {
+            let difference = val - self.src;
+            return DataUnit {
+                value: self.dest + difference,
+                kind: src.kind.transition(),
+            }; 
+        } else {
+            return *src;
         }
     }
 }
@@ -109,17 +112,30 @@ fn numbers_from_strings(ss: &Vec<&str>) -> Box<Vec<u64>> {
    return Box::new(result);
 }
 
+fn process_line(line: &str, store: &mut Box<Vec<DataUnit>>) -> Box<Vec<DataUnit>> {
+    let words_in_line = line.split(" ").collect();
+    let numbers = numbers_from_strings(&words_in_line);
+    let range_spec = RangeSpec::from_numbers(&numbers);
+    
+    let mut new_store = Box::new(Vec::new());
 
+    for unit in store.iter() {
+        let new_data_unit = range_spec.get_dest(&unit);
+        new_store.push(new_data_unit);
+    }
+
+    return new_store;
+} 
 
 fn main() {
     if let Ok(lines) = read_lines(Path::new("./day5input.txt")) {
-        let mut reading_state = ReadState::Seeds; // Assuming the input file starts with seeds
+        let mut reading_state = UnitType::Seed; // Assuming the input file starts with seeds
         // Stores a vector of numbers, initially those are seeds, but eventually they become something else.
-        let mut store: &mut Vec<DataUnit> = &mut Vec::new();
+        let mut store: Box<Vec<DataUnit>> = Box::new(Vec::new());
         for line in lines {
             if let Ok(line) = line {
                 if line.starts_with("seeds:") {
-                    reading_state = ReadState::Seeds;
+                    reading_state = UnitType::Seed;
                     let words_tail: Vec<&str> = line.split(" ").filter(|x| { !x.eq(&"seeds:") }).collect();
 
                     // debug_assert!(words_tail.len() > 0);
@@ -127,43 +143,28 @@ fn main() {
                     // Clearing vector just in case, hopefully it never gets called again
                     // store.clear(); 
                     for n in numbers.iter() {
-                        store.push(DataUnit::new(*n, DataType::Seed));
+                        store.push(DataUnit{
+                            value: *n,
+                            kind: UnitType::Seed
+                        });
                     }
                 } else if line.starts_with("soil-to-fertilizer map:") {
-                    reading_state = ReadState::SeedToSoil
+                    reading_state = UnitType::Soil;
                 } else {
                     if line.trim().len() > 0 {
                         match reading_state {
-                            ReadState::SeedToSoil => {
-                                let words_in_line = line.split(" ").collect();
-                                let numbers = numbers_from_strings(&words_in_line);
-                                let range_spec = RangeSpec::from_numbers(&numbers);
-
-                                let new_store: &mut Vec<DataUnit> = &mut Vec::new();
-
-                                for unit in store {
-                                    match unit {
-                                        DataUnit::Seed(val) => {
-                                            let v = val.clone();
-                                            let new_data_unit = DataUnit::new(range_spec.get_dest(v), DataType::Soil);        
-                                            new_store.push(new_data_unit);
-                                        },
-                                        _ => (),
-                                    }
-                                }
-
-                                store = new_store;
+                            UnitType::Seed => {
+                                store = process_line(&line, &mut store);
                             },
-                            ReadState::SoilToFert => {
-
-                            }
-                            _ => (),
+                            _ => {
+                                // Check of unconverted stuff, and convert them into something new.
+                                store = process_line(&line, &mut store);
+                            },
                         }
                     }
                 }
             }
         }
     }
-
 }
 
