@@ -89,6 +89,6 @@ fn main() {
         };
 
         let one_more_result = compute_combination_for_a_race(&one_more_race);
-        println!("{:?}", one_more_result);
+        println!("Second part, one more race: {:?}", one_more_result);
     }
 }
