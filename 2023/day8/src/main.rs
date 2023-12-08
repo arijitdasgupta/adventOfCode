@@ -71,9 +71,9 @@ fn main() {
     }
 
     let mut steps: usize = 0;
-    let mut current_position = string_to_u32("aaa");
+    let mut current_position = string_to_u32("AAA");
 
-    let final_position = string_to_u32("zzz");
+    let final_position = string_to_u32("ZZZ");
 
     while current_position != final_position {
         let direction = directions.get(steps % directions.len()).unwrap();
@@ -96,13 +96,13 @@ fn main() {
 
     let mut current_positions_v: Vec<u32> = Vec::new();
     for key in network.keys().into_iter() {
-        if does_all_ends_with(&vec!(*key), &'a') && current_positions_v.len() < 4 {
+        if does_all_ends_with(&vec!(*key), &'A') {
             println!("{:b}", key);
             current_positions_v.push(*key);
         }
     }
 
-    while !does_all_ends_with(&current_positions_v, &'z') {
+    while !does_all_ends_with(&current_positions_v, &'Z') {
         let direction = directions.get(steps % directions.len()).unwrap();
 
         let mut next_positions: Vec<u32> = Vec::new();
