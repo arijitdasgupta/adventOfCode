@@ -43,40 +43,50 @@ fn main() {
     let stdin = io::stdin();
     let stdin_handler = stdin.lock();
 
-    let direction_regex = Regex::new(r"(\w{3})\W=\W\((\w{3})\,\W(\w{3})\)").unwrap();
+    let node_regex = Regex::new(r"(\w{3})\W=\W\((\w{3})\,\W(\w{3})\)").unwrap();
 
-    let mut directions: Vec<Directions> = Vec::new();
+    let mut directions: HashMap<u64, Directions> = HashMap::new();
+    let mut direction_size: u64 = 0;
     let mut network: HashMap<u32, NetworkUnit> = HashMap::new();
+    
+    // 26 * 3
+    let _: Vec<NetworkUnit> = Vec::with_capacity(17576);
 
-    assert_eq!(does_all_ends_with(&vec!(string_to_u32("AAZ"),string_to_u32("ASZ"), string_to_u32("FFZ")), &'Z'), true);
+    assert_eq!(does_all_ends_with(&vec!(string_to_u32("AAZ"),string_to_u32("ASZ"), string_to_u32("FFZ"), string_to_u32("BBZ"), string_to_u32("CCZ")), &'Z'), true);
     assert_eq!(does_all_ends_with(&vec!(string_to_u32("AAZ"),string_to_u32("AAX"), string_to_u32("FFS")), &'Z'), false);
 
     for line in stdin_handler.lines().into_iter() {
         if let Ok(l) = line {
             // If results don't match regex
-            if direction_regex.is_match(&l) {
-                let (_, [origin, dest_l, dest_r]) = direction_regex.captures(&l).map(|caps| caps.extract()).unwrap();
+            if node_regex.is_match(&l) {
+                let (_, [origin, dest_l, dest_r]) = node_regex.captures(&l).map(|caps| caps.extract()).unwrap();
 
                 network.insert(string_to_u32(origin), NetworkUnit { l: string_to_u32(dest_l), r: string_to_u32(dest_r) });
             } else {
-                for char in l.chars() {
+                for (i, char) in l.chars().enumerate() {
                     if char == 'L' {
-                        directions.push(Directions::L);
+                        directions.insert(i.try_into().unwrap(), Directions::L);
                     } else if char == 'R' {
-                        directions.push(Directions::R);
+                        directions.insert(i.try_into().unwrap(), Directions::R);
                     }
+                    direction_size += 1;
                 }
             }
         }
     }
 
-    let mut steps: usize = 0;
+    // Immutable now :-D
+    let direction_size = direction_size;
+    let directions = directions;
+
+    let mut steps: u64 = 0;
     let mut current_position = string_to_u32("AAA");
 
     let final_position = string_to_u32("ZZZ");
 
     while current_position != final_position {
-        let direction = directions.get(steps % directions.len()).unwrap();
+        let directional_index = steps % direction_size;
+        let direction = directions.get(&directional_index).unwrap();
 
         let next_position;
         
@@ -92,43 +102,43 @@ fn main() {
 
     println!("Part 1: {}", steps);
 
-    let mut steps: usize = 0;
+    // End of part 1
 
-    let mut current_positions_v: Vec<u32> = Vec::new();
-    for key in network.keys().into_iter() {
-        if does_all_ends_with(&vec!(*key), &'A') {
-            println!("{:b}", key);
-            current_positions_v.push(*key);
+    let key_iter = network.keys().into_iter();
+
+    let mut steps: u64 = 0;
+    let mut current_positions: Vec<u32> = Vec::from_iter(
+        key_iter.clone()
+        .filter(|k| { does_all_ends_with(&vec!(**k), &'a') })
+        .map(|x| { *x })
+        .take(4)
+    );
+    let positions_size = current_positions.len();
+
+    while !does_all_ends_with(&current_positions, &'z') {
+        if steps == u64::MAX {
+            dbg!("DANG! steps almost flowed...");
         }
-    }
 
-    while !does_all_ends_with(&current_positions_v, &'Z') {
-        let direction = directions.get(steps % directions.len()).unwrap();
+        let index = steps % direction_size;
+        let direction = directions.get(&index).unwrap();
 
-        let mut next_positions: Vec<u32> = Vec::new();
-        
-        match direction {
-            Directions::L => {
-                for position in current_positions_v.iter() {
-                    next_positions.push(network.get(position).unwrap().l);
-                }
-             },
-            Directions::R => {
-                for position in current_positions_v.iter() {
-                    next_positions.push(network.get(position).unwrap().r);
+        for i in 0..positions_size {
+            match direction {
+                Directions::L => {
+                    current_positions[i] = network.get(&current_positions[i]).unwrap().l;
+                },
+                Directions::R => {
+                    current_positions[i] = network.get(&current_positions[i]).unwrap().r;
                 }
             }
-        } 
+        }
         
         // Updating next position
         steps += 1;
-
-        current_positions_v.clear();
-        for p in next_positions.iter() {
-            current_positions_v.push(*p);
-        }
     }
 
+    dbg!(steps);
     println!("Part 2: {}", steps);
 }
 
