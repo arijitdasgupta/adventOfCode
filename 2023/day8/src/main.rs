@@ -38,6 +38,17 @@ fn does_all_ends_with(positions: &Vec<u32>, ch: &char) -> bool {
     return true;
 }
 
+enum From {
+    L,
+    R
+}
+
+
+struct InverseNode {
+    node: u32,
+    from_direction: Directions,
+}
+
 fn main() {
     // Reading file
     let stdin = io::stdin();
@@ -61,7 +72,10 @@ fn main() {
             if node_regex.is_match(&l) {
                 let (_, [origin, dest_l, dest_r]) = node_regex.captures(&l).map(|caps| caps.extract()).unwrap();
 
-                network.insert(string_to_u32(origin), NetworkUnit { l: string_to_u32(dest_l), r: string_to_u32(dest_r) });
+                network.insert(
+                    string_to_u32(origin), 
+                    NetworkUnit { l: string_to_u32(dest_l), r: string_to_u32(dest_r) }
+                );
             } else {
                 for (i, char) in l.chars().enumerate() {
                     if char == 'L' {
@@ -106,39 +120,38 @@ fn main() {
 
     let key_iter = network.keys().into_iter();
 
-    let mut steps: u64 = 0;
-    let mut current_positions: Vec<u32> = Vec::from_iter(
+    let end_positions = Vec::from_iter(
         key_iter.clone()
-        .filter(|k| { does_all_ends_with(&vec!(**k), &'a') })
+        .filter(|k| { does_all_ends_with(&vec!(**k), &'z') })
         .map(|x| { *x })
-        .take(4)
     );
-    let positions_size = current_positions.len();
 
-    while !does_all_ends_with(&current_positions, &'z') {
-        if steps == u64::MAX {
-            dbg!("DANG! steps almost flowed...");
-        }
+    let mut inverse_tree: Vec<&mut Vec<Directions>> = Vec::new();
 
-        let index = steps % direction_size;
-        let direction = directions.get(&index).unwrap();
-
-        for i in 0..positions_size {
-            match direction {
-                Directions::L => {
-                    current_positions[i] = network.get(&current_positions[i]).unwrap().l;
-                },
-                Directions::R => {
-                    current_positions[i] = network.get(&current_positions[i]).unwrap().r;
+    while true {
+        // Find things that are coming from end_positions
+        for (index, node) in end_positions.iter().enumerate() {
+            // find where i can come from.
+            for network_key in network.keys().into_iter() {
+                let network_value = network.get(network_key).unwrap();
+                if network_value.l == *node {
+                    match inverse_tree.get(index) {
+                        Some(vec) => {
+                            *vec.push(new_value);
+                        },
+                        None => {
+                            let mut vec = Vec::new()
+                            vec.push(new_value);
+    
+                            inverse_tree.
+                        }
+                    }
+                } else if network_value.r == *node {
+                    new_value = Directions::R;
                 }
             }
         }
-        
-        // Updating next position
-        steps += 1;
     }
 
-    dbg!(steps);
-    println!("Part 2: {}", steps);
 }
 
