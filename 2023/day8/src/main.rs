@@ -203,8 +203,6 @@ fn main() {
 
             current_direction_index = pos.direction_index;
             current_position_index += 1;
-
-            dbg!(current_direction_index);
         }
     }
 
