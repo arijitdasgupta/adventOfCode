@@ -1,4 +1,4 @@
-use std::{io::{self, BufRead}, collections::HashMap, borrow::BorrowMut, thread};
+use std::{io::{self, BufRead}, collections::HashMap, borrow::BorrowMut};
 use regex::Regex;
 // (\w{3})\W=\W\((\w{3})\,\W(\w{3})\)
 
@@ -120,14 +120,6 @@ impl PositionUnit {
         let last_byte = (pos >> 16) as u8;
         return (last_byte ^ c) == 0 ;
     }
-
-    fn are_all_ending_with(selfs: &Vec<&mut Self>, target: SignificantPosition) -> bool {
-        if let Some(_) = selfs.iter().find(|p| { !p.is_last_pos(target as u8)}) {
-            return false;
-        } else {
-            return true;
-        }
-    }
 }
 
 fn str_to_position(s: &str) -> Position {
@@ -189,46 +181,33 @@ fn main() {
 
     let starting_positions = all_positions
         .map(|key| { PositionUnit::new(*key, &directions, &network) })
-        .filter(|p| { p.is_last_pos('a' as u8)})
-        .take(1)
-        .map(|i| { &mut i });
+        .filter(|p| { p.is_last_pos('a' as u8)});
 
-    let positions: Vec<&mut PositionUnit> = Vec::from_iter(starting_positions);
+    let mut positions: Vec<PositionUnit> = Vec::from_iter(starting_positions);
 
-    while !PositionUnit::are_all_ending_with(&positions, 'z' as u8) {
-        let p_threads = positions
-            .iter()
-            .map(|p| { thread::spawn(move || {
-                p.until_step(p.direction_index + 1);
-                let _ = p.until_last_pos('z' as u8);
-                return;
-            } )});
+    let mut current_position_index = 0;
+    let mut current_direction_index = 0;
 
-        for t in p_threads {
-            dbg!("Before join");
-            t.join().expect("BOOM!");
-            dbg!("After join");
-        }
-    } 
-
-    println!("Part 2: {}", positions.first().unwrap().direction_index);
-
-    // while let Some(pos) = positions.get_mut(current_position_index) {
-    //     if current_position_index != 0 {
-    //         pos.until_step(current_direction_index);
-    //         if pos.is_last_pos('z' as u8) {
-    //             current_position_index += 1;
-    //         } else {
-    //             current_position_index = 0;
+    while let Some(pos) = positions.get_mut(current_position_index) {
+        if current_position_index != 0 {
+            pos.until_step(current_direction_index);
+            if pos.is_last_pos('z' as u8) {
+                current_position_index += 1;
+            } else {
+                current_position_index = 0;
                 
-    //         }
-    //     } else {
-    //         pos.until_step(pos.direction_index + 1);
-    //         pos.until_last_pos('z' as u8);
+            }
+        } else {
+            pos.until_step(pos.direction_index + 1);
+            pos.until_last_pos('z' as u8);
 
-    //         current_direction_index = pos.direction_index;
-    //         current_position_index += 1;
-    //     }
-    // }
+            current_direction_index = pos.direction_index;
+            current_position_index += 1;
+
+            dbg!(current_direction_index);
+        }
+    }
+
+    println!("Part 2: {}", current_direction_index);
 }
 
